@@ -140,33 +140,36 @@ function init() {
 
   // keyboad control
   var RotSpeed = 5.0;
+  var PosSpeed = 0.1;
 
   document.addEventListener("keydown", onDocumentKeyDown, false);
   function onDocumentKeyDown(event) {
     var keyCode = event.which;
     if (keyCode == 90) {
       // z
-      phi[0] += RotSpeed;
+      pe.z += PosSpeed;
     } else if (keyCode == 88) {
       // x
-      phi[0] -= RotSpeed;
+      pe.z -= PosSpeed;
     } else if (keyCode == 65) {
       // a
-      phi[1] += RotSpeed;
+      pe.y += PosSpeed;
     } else if (keyCode == 83) {
       // s
-      phi[1] -= RotSpeed;
+      pe.y -= PosSpeed;
     } else if (keyCode == 81) {
       // q
-      phi[2] += RotSpeed;
+      pe.x += PosSpeed;
     } else if (keyCode == 87) {
       // w
-      phi[2] -= RotSpeed;
+      pe.x -= PosSpeed;
     } else if (keyCode == 32) {
       phi[0] =  0.0;
       phi[1] = 45.0;
       phi[2] = 90.0;
+      DK();
     }
+    IK();
     DK();
   }
 
@@ -233,10 +236,14 @@ function init() {
     var C1 = Math.cos(phi[0]);
     var r = Math.sqrt(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2))
     var Phi = Math.atan2(pz-l[0]-l[1],px/C1);
-    var d = 1/(2*l[2])(pow(px/C1,2)+pow(pz-l[0]-l[1],2)+pow(l[2],2)-pow(l[3],2));
+    var d = 1./(2.*l[2])*(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2)+Math.pow(l[2],2)-Math.pow(l[3],2));
 
-    phi[1] = atan2(d/r, Math.sqrt(1-pow(d/r,2))) - Phi;
-    phi[2] = atan2(px/C1-Math.sin(phi[1])*l[2], pz-l[0]-l[1]-Math.cos(phi[1])*l[2]) - phi[1];
+    phi[1] = Math.atan2(d/r, Math.sqrt(1-Math.pow(d/r,2))) - Phi;
+    phi[2] = Math.atan2(px/C1-Math.sin(phi[1])*l[2], pz-l[0]-l[1]-Math.cos(phi[1])*l[2]) - phi[1];
+
+    phi[0] = phi[0] * 180 / Math.PI;
+    phi[1] = phi[1] * 180 / Math.PI;
+    phi[2] = phi[2] * 180 / Math.PI;
   }
 
   function calcJacobi() {
@@ -267,7 +274,8 @@ function init() {
     // rendering
     renderer.render(scene, camera);
 
-   console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2]);
+    console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2]);
+    console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
     requestAnimationFrame(tick);
   }
 

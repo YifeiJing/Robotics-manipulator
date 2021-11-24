@@ -11,20 +11,24 @@ var c2 = new THREE.Vector3(); // center of arm2
 // c2.copy(new THREE.Vector3(0., 0., 2.));
 var c3 = new THREE.Vector3(); // center of arm3
 // c3.copy(new THREE.Vector3(0., 0., 3.));
+var c4 = new THREE.Vector3();
 var q01 = new THREE.Quaternion(); // 0A1 matrix
 var q02 = new THREE.Quaternion(); // 0A2 matrix
 var q03 = new THREE.Quaternion(); // 0A3 matrix
+var q04 = new THREE.Quaternion();
 var p0 = new THREE.Vector3(); // position of base origin
 var p1 = new THREE.Vector3(); // position of joint 1
 var p2 = new THREE.Vector3(); // position of joint 2
 var p3 = new THREE.Vector3(); // position of joint 3
+var p4 = new THREE.Vector3();
 var pe = new THREE.Vector3(); // position of hand
 var startpoint = new THREE.Vector3(-1.375, -1.575, 0.92);
 var endpoint = new THREE.Vector3(1.0, 2.3, 2.9);
-var l = [1, 1, 1, 1]; // arm length
-var phi = [0, 45, 90];
+var l = [1, 1, 1, 1, 1]; // arm length
+var phi = [0, 45, 90, 45];
 var move = 0;
 var jacobi = new THREE.Matrix3();
+var jacobi_m4 = new THREE.Matrix4();
 var ve = new THREE.Vector3(.0,.0,.0); // vector of velocity
 
 function init() {
@@ -138,6 +142,15 @@ function init() {
     scene.add(arm3);
   }
 
+  createArm4();
+
+  function createArm4() {
+    var geometry = new THREE.BoxGeometry(l[4], 0.2, 0.2);
+    var material = new THREE.MeshStandardMaterial({color: 0x00ffff, side: THREE.DoubleSide});
+    arm4 = new THREE.Mesh(geometry, material);
+    scene.add(arm4);
+  }
+
   DK();
 
   // rendering
@@ -173,6 +186,7 @@ function init() {
       phi[0] =  0.0;
       phi[1] = 45.0;
       phi[2] = 90.0;
+      phi[3] = 45.0;
       ve.set(0,0,0);
       DK();
     } else if (keyCode == 69) {
@@ -194,11 +208,13 @@ function init() {
     var l1 = new THREE.Vector3(0, 0, l[1]);
     var l2 = new THREE.Vector3(l[2], 0, 0);
     var l3 = new THREE.Vector3(l[3], 0, 0);
+    var l4 = new THREE.Vector3(l[4], 0, 0);
     // centers
     var h0 = new THREE.Vector3(0, 0, l[0]/2.0);
     var h1 = new THREE.Vector3(0, 0, l[1]/2.0);
     var h2 = new THREE.Vector3(l[2]/2.0, 0, 0);
     var h3 = new THREE.Vector3(l[3]/2.0, 0, 0);
+    var h4 = new THREE.Vector3(l[4]/2.0, 0, 0);
 
     var x_axis = new THREE.Vector3(1, 0, 0);
     var y_axis = new THREE.Vector3(0, 1, 0);
@@ -210,12 +226,15 @@ function init() {
     var q3 = new THREE.Quaternion().setFromAxisAngle(z_axis, phi[1]*Math.PI/180.0);
     var q12 = new THREE.Quaternion().multiplyQuaternions(q1, q2).multiply(q3);
     var q23 = new THREE.Quaternion().setFromAxisAngle(z_axis, phi[2]*Math.PI/180.0);
+    var q34 = new THREE.Quaternion().setFromAxisAngle(z_axis, phi[3]*Math.PI/180.0);
 
     q01.setFromAxisAngle(z_axis, phi[0]*Math.PI/180.0);
     q02 = q01.clone();
     q02.multiply(q12);
     q03 = q02.clone();
     q03.multiply(q23);
+    q04 = q03.clone();
+    q04.multiply(q34);
 
     // Positions
     p0.set(0,0,0);
@@ -224,8 +243,10 @@ function init() {
     p2.add(l1.applyQuaternion(q01));
     p3 = p2.clone();
     p3.add(l2.applyQuaternion(q02));
-    pe = p3.clone();
-    pe.add(l3.applyQuaternion(q03));
+    p4 = p3.clone();
+    p4.add(l3.applyQuaternion(q03));
+    pe = p4.clone();
+    pe.add(l4.applyQuaternion(q04));
 
     // Centers
     c0 = h0.clone();
@@ -236,29 +257,12 @@ function init() {
     c2.add(h2.applyQuaternion(q02));
     c3 = p3.clone();
     c3.add(h3.applyQuaternion(q03));
+    c4 = p4.clone();
+    c4.add(h4.applyQuaternion(q04));
   }
 
   function IK() {
-    //Insert code for IK here
-    // px and py in pe, finding angels accordingly
-    var px = pe.x;
-    var py = pe.y;
-    var pz = pe.z;
-
-    phi0 = Math.atan2(py,px);
-    var C1 = Math.cos(phi0);
-    var r = Math.sqrt(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2))
-    var Phi = Math.atan2(pz-l[0]-l[1],px/C1);
-    var d = 1./(2.*l[2])*(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2)+Math.pow(l[2],2)-Math.pow(l[3],2));
-
-    if (d > r) return;
-    phi[0] = Math.atan2(py,px); 
-    phi[1] = Math.atan2(d/r, Math.sqrt(1-Math.pow(d/r,2))) - Phi;
-    phi[2] = Math.atan2(px/C1-Math.sin(phi[1])*l[2], pz-l[0]-l[1]-Math.cos(phi[1])*l[2]) - phi[1];
-
-    phi[0] = phi[0] * 180 / Math.PI;
-    phi[1] = phi[1] * 180 / Math.PI;
-    phi[2] = phi[2] * 180 / Math.PI;
+    
   }
 
   function calcJacobi() {
@@ -269,10 +273,15 @@ function init() {
     const S1 = Math.sin(phi[0]*Math.PI/180.0);
     const S2 = Math.sin(phi[1]*Math.PI/180.0);
     const S23 = Math.sin((phi[1]+phi[2])*Math.PI/180.0);
-    
+    const C234 = Math.cos((phi[1]+phi[2]+phi[3])*Math.PI/180.0);
+    const S234 = Math.sin((phi[1]+phi[2]+phi[3])*Math.PI/180.0);
     jacobi.set(-S1*(S2*l[2]+S23*l[3]), C1*(C2*l[2]+C23*l[3]), C1*C23*l[3],
                 C1*(S2*l[2]+S23*l[3]), S1*(C2*l[2]+C23*l[3]), S1*C23*l[3],
                 0, -S2*l[2]-S23*l[3], -S23*l[3]);
+    jacobi_m4.set(-S1*(S2*l[2]+S23*l[3]+S234*l[4]), C1*(C2*l[2]+C23*l[3]+C234*l[4]), C1*(C23*l[3]+C234*l[4]), C1*C234*l[4],
+                   C1*(S2*l[2]+S23*l[3]+S234*l[4]), S1*(C2*l[2]+C23*l[3]+C234*l[4]), S1*(C23*l[3]+C234*l[4]), S1*C234*l[4],
+                   0, -S2*l[2]-S23*l[3]-S234*l[4], -S23*l[3]-S234*l[4], -S234*l[4],
+                   0, 0, 0, 1);
   }
 
   var iteration = 1;
@@ -281,21 +290,30 @@ function init() {
   function tick() {
     
     calcJacobi();
-    var ved = new THREE.Vector3();
-    ved.set(ve.x,ve.y,ve.z);
-    var im = new THREE.Matrix3();
-    if (Math.abs(jacobi.determinant()) < 0.1)
+    var ved = new THREE.Vector4();
+    ved.set(ve.x,ve.y,ve.z, 0);
+    var im = new THREE.Matrix4();
+    var m = new THREE.Matrix4();
+    var m1 = new THREE.Matrix4();
+    var m2 = new THREE.Matrix4();
+    var pj = new THREE.Matrix4();
+    m = jacobi_m4.clone();
+    m.transpose();
+    m2.multiplyMatrices(jacobi_m4,m);
+    if (Math.abs(m2.determinant()) < 0.1)
     {
       console.log("Out of range determinant\n");
       ve.set(0,0,0);
     }
-    im.getInverse(jacobi);
-    var phid = new THREE.Vector3();
-    phid = ved.applyMatrix3(im);
+    im.getInverse(m2);
+    pj.multiplyMatrices(m, im);
+    var phid = new THREE.Vector4();
+    phid = ved.applyMatrix4(pj);
 
     phi[0] = phi[0] + phid.x / Math.PI * 180.0 * dt;
     phi[1] = phi[1] + phid.y / Math.PI * 180.0 * dt; 
     phi[2] = phi[2] + phid.z / Math.PI * 180.0 * dt;
+    phi[3] = phi[3] + phid.w / Math.PI * 180.0 * dt;
 
     DK();
 
@@ -306,6 +324,8 @@ function init() {
     arm2.quaternion.copy(q02);
     arm3.position.copy(c3);
     arm3.quaternion.copy(q03);
+    arm4.position.copy(c4);
+    arm4.quaternion.copy(q04);
 
     // update camera controller
     controls.update();
@@ -313,9 +333,9 @@ function init() {
     // rendering
     renderer.render(scene, camera);
 
-    console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2]);
+    console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2] + " " + phi[3]);
     // console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
-    console.log("ve" + " " + ve.x + " " + ve.y + " "+ ve.z);
+    console.log("ve" + " " + ve.x + " " + ve.y + " "+ ve.z + " " + ve.w);
     requestAnimationFrame(tick);
   }
 

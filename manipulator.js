@@ -19,8 +19,13 @@ var p1 = new THREE.Vector3(); // position of joint 1
 var p2 = new THREE.Vector3(); // position of joint 2
 var p3 = new THREE.Vector3(); // position of joint 3
 var pe = new THREE.Vector3(); // position of hand
+var startpoint = new THREE.Vector3(-1.375, -1.575, 0.92);
+var endpoint = new THREE.Vector3(1.0, 2.3, 2.9);
 var l = [1, 1, 1, 1]; // arm length
 var phi = [0, 45, 90];
+var move = 0;
+var jacobi = new THREE.Matrix3();
+var ve = new THREE.Vector3(.0,.0,.0); // vector of velocity
 
 function init() {
   // renderer 
@@ -147,30 +152,38 @@ function init() {
     var keyCode = event.which;
     if (keyCode == 90) {
       // z
-      pe.z += PosSpeed;
+      ve.z += PosSpeed;
     } else if (keyCode == 88) {
       // x
-      pe.z -= PosSpeed;
+      ve.z -= PosSpeed;
     } else if (keyCode == 65) {
       // a
-      pe.y += PosSpeed;
+      ve.y += PosSpeed;
     } else if (keyCode == 83) {
       // s
-      pe.y -= PosSpeed;
+      ve.y -= PosSpeed;
     } else if (keyCode == 81) {
       // q
-      pe.x += PosSpeed;
+      ve.x += PosSpeed;
     } else if (keyCode == 87) {
       // w
-      pe.x -= PosSpeed;
+      ve.x -= PosSpeed;
     } else if (keyCode == 32) {
+      // space
       phi[0] =  0.0;
       phi[1] = 45.0;
       phi[2] = 90.0;
+      ve.set(0,0,0);
       DK();
+    } else if (keyCode == 69) {
+      // e
+      move = 1;
+    } else if (keyCode == 82) {
+      // r
+      move = 0;
     }
-    IK();
-    DK();
+    // IK();
+    // DK();
   }
 
 
@@ -232,12 +245,14 @@ function init() {
     var py = pe.y;
     var pz = pe.z;
 
-    phi[0] = Math.atan2(py,px);
-    var C1 = Math.cos(phi[0]);
+    phi0 = Math.atan2(py,px);
+    var C1 = Math.cos(phi0);
     var r = Math.sqrt(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2))
     var Phi = Math.atan2(pz-l[0]-l[1],px/C1);
     var d = 1./(2.*l[2])*(Math.pow(px/C1,2)+Math.pow(pz-l[0]-l[1],2)+Math.pow(l[2],2)-Math.pow(l[3],2));
 
+    if (d > r) return;
+    phi[0] = Math.atan2(py,px); 
     phi[1] = Math.atan2(d/r, Math.sqrt(1-Math.pow(d/r,2))) - Phi;
     phi[2] = Math.atan2(px/C1-Math.sin(phi[1])*l[2], pz-l[0]-l[1]-Math.cos(phi[1])*l[2]) - phi[1];
 
@@ -248,18 +263,42 @@ function init() {
 
   function calcJacobi() {
     //Insert code for jacobian calculation here
-
+    const C1 = Math.cos(phi[0]*Math.PI/180.0);
+    const C2 = Math.cos(phi[1]*Math.PI/180.0);
+    const C23 = Math.cos((phi[1]+phi[2])*Math.PI/180.0);
+    const S1 = Math.sin(phi[0]*Math.PI/180.0);
+    const S2 = Math.sin(phi[1]*Math.PI/180.0);
+    const S23 = Math.sin((phi[1]+phi[2])*Math.PI/180.0);
+    
+    jacobi.set(-S1*(S2*l[2]+S23*l[3]), C1*(C2*l[2]+C23*l[3]), C1*C23*l[3],
+                C1*(S2*l[2]+S23*l[3]), S1*(C2*l[2]+C23*l[3]), S1*C23*l[3],
+                0, -S2*l[2]-S23*l[3], -S23*l[3]);
   }
 
+  var iteration = 1;
+  var max_iter = 60;
+  var dt = 0.1;
   function tick() {
-    // const base_up = 0.5;
-    // c1.set(0., 0., base_up+.5);
-    // c2.set(0., 0., base_up+1.5);
-    // c3.set(0., 0., base_up+2.5);
-    // var y_axis = new THREE.Vector3(0,1,0);
-    // q01 = new THREE.Quaternion().setFromAxisAngle(y_axis, phi[0]);
-    // q02 = new THREE.Quaternion().setFromAxisAngle(y_axis, phi[1]);
-    // q03 = new THREE.Quaternion().setFromAxisAngle(y_axis, phi[2]);
+    
+    calcJacobi();
+    var ved = new THREE.Vector3();
+    ved.set(ve.x,ve.y,ve.z);
+    var im = new THREE.Matrix3();
+    if (Math.abs(jacobi.determinant()) < 0.1)
+    {
+      console.log("Out of range determinant\n");
+      ve.set(0,0,0);
+    }
+    im.getInverse(jacobi);
+    var phid = new THREE.Vector3();
+    phid = ved.applyMatrix3(im);
+
+    phi[0] = phi[0] + phid.x / Math.PI * 180.0 * dt;
+    phi[1] = phi[1] + phid.y / Math.PI * 180.0 * dt; 
+    phi[2] = phi[2] + phid.z / Math.PI * 180.0 * dt;
+
+    DK();
+
     base.position.copy(c0);
     arm1.position.copy(c1);
     arm1.quaternion.copy(q01);
@@ -275,7 +314,8 @@ function init() {
     renderer.render(scene, camera);
 
     console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2]);
-    console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
+    // console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
+    console.log("ve" + " " + ve.x + " " + ve.y + " "+ ve.z);
     requestAnimationFrame(tick);
   }
 

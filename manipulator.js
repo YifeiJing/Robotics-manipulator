@@ -22,6 +22,7 @@ var p2 = new THREE.Vector3(); // position of joint 2
 var p3 = new THREE.Vector3(); // position of joint 3
 var p4 = new THREE.Vector3();
 var pe = new THREE.Vector3(); // position of hand
+var tp = new THREE.Vector3();
 var startpoint = new THREE.Vector3(-1.375, -1.575, 0.92);
 var endpoint = new THREE.Vector3(1.0, 2.3, 2.9);
 var l = [1, 1, 1, 1, 1]; // arm length
@@ -159,36 +160,37 @@ function init() {
   // keyboad control
   var RotSpeed = 5.0;
   var PosSpeed = 0.1;
+  const TargetDelta = 0.5;
 
   document.addEventListener("keydown", onDocumentKeyDown, false);
   function onDocumentKeyDown(event) {
     var keyCode = event.which;
     if (keyCode == 90) {
       // z
-      ve.z += PosSpeed;
+      tp.z += TargetDelta;
     } else if (keyCode == 88) {
       // x
-      ve.z -= PosSpeed;
+      tp.z -= TargetDelta;
     } else if (keyCode == 65) {
       // a
-      ve.y += PosSpeed;
+      tp.y += TargetDelta;
     } else if (keyCode == 83) {
       // s
-      ve.y -= PosSpeed;
+      tp.y -= TargetDelta;
     } else if (keyCode == 81) {
       // q
-      ve.x += PosSpeed;
+      tp.x += TargetDelta;
     } else if (keyCode == 87) {
       // w
-      ve.x -= PosSpeed;
+      tp.x -= TargetDelta;
     } else if (keyCode == 32) {
       // space
       phi[0] =  0.0;
       phi[1] = 45.0;
       phi[2] = 90.0;
       phi[3] = 45.0;
-      ve.set(0,0,0);
       DK();
+      tp.set(pe.x,pe.y,pe.z);
     } else if (keyCode == 69) {
       // e
       move = 1;
@@ -290,30 +292,23 @@ function init() {
   function tick() {
     
     calcJacobi();
-    var ved = new THREE.Vector4();
-    ved.set(ve.x,ve.y,ve.z, 0);
-    var im = new THREE.Matrix4();
-    var m = new THREE.Matrix4();
-    var m1 = new THREE.Matrix4();
-    var m2 = new THREE.Matrix4();
-    var pj = new THREE.Matrix4();
-    m = jacobi_m4.clone();
-    m.transpose();
-    m2.multiplyMatrices(jacobi_m4,m);
-    if (Math.abs(m2.determinant()) < 0.1)
-    {
-      console.log("Out of range determinant\n");
-      ve.set(0,0,0);
-    }
-    im.getInverse(m2);
-    pj.multiplyMatrices(m, im);
-    var phid = new THREE.Vector4();
-    phid = ved.applyMatrix4(pj);
 
-    phi[0] = phi[0] + phid.x / Math.PI * 180.0 * dt;
-    phi[1] = phi[1] + phid.y / Math.PI * 180.0 * dt; 
-    phi[2] = phi[2] + phid.z / Math.PI * 180.0 * dt;
-    phi[3] = phi[3] + phid.w / Math.PI * 180.0 * dt;
+    var k = 0.5;
+    var phid = new THREE.Vector4();
+    var fed = new THREE.Vector4();
+
+    fed.set(k*(tp.x-pe.x), k*(tp.y-pe.y), k*(tp.z-pe.z), 0);
+
+    var tj = new THREE.Matrix4();
+
+    tj = jacobi_m4.clone();
+    tj.transpose();
+    phid = fed.applyMatrix4(tj);
+
+    phi[0] = phi[0] + phid.x * dt;
+    phi[1] = phi[1] + phid.y * dt; 
+    phi[2] = phi[2] + phid.z * dt;
+    phi[3] = phi[3] + phid.w * dt;
 
     DK();
 
@@ -334,8 +329,8 @@ function init() {
     renderer.render(scene, camera);
 
     console.log("phi " + phi[0] + " " + phi[1] + " " + phi[2] + " " + phi[3]);
-    // console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
-    console.log("ve" + " " + ve.x + " " + ve.y + " "+ ve.z + " " + ve.w);
+    console.log("pe" + " " + pe.x + " " + pe.y + " "+ pe.z);
+    // console.log("ve" + " " + ve.x + " " + ve.y + " "+ ve.z + " " + ve.w);
     requestAnimationFrame(tick);
   }
 
